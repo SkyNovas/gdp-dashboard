@@ -111,9 +111,9 @@ if selected_environments:
     # --- Métricas Clave ---
     st.subheader("Métricas Clave Comparativas")
     metrics_data = {}
+    total_sum_annual = 0.0  # Para la suma total de todos los ambientes
     for env in selected_environments:
         if env in environment_costs:
-            # Separar los costos anuales fijos y los mensuales
             annual_services = ['GitLab', 'CheckMarx', 'Sonarqube']
             annual_cost = sum(environment_costs[env][s] for s in annual_services if s in environment_costs[env])
             monthly_cost = sum(v for k, v in environment_costs[env].items() if k not in annual_services)
@@ -123,7 +123,14 @@ if selected_environments:
                 "Costo Total Mensual": f"${total_cost_month:,.2f} USD",
                 "Costo Total Anual":  f"${total_cost_annual:,.2f} USD"
             }
+            total_sum_annual += total_cost_annual
+
+    # Añadir fila de sumatoria total anual
     metrics_df = pd.DataFrame(metrics_data).T
+    metrics_df.loc["TOTAL"] = [
+        "",  # No aplica mensual para el total
+        f"${total_sum_annual:,.2f} USD"
+    ]
     st.dataframe(metrics_df)
     st.markdown("---")
 
@@ -145,7 +152,9 @@ if selected_environments:
         annual_cost = sum(environment_costs[env][s] for s in annual_services if s in environment_costs[env])
         monthly_cost = sum(v for k, v in environment_costs[env].items() if k not in annual_services)
         totals[env] = annual_cost + (monthly_cost * 12)
+    # Añadir columna de sumatoria total anual
     detailed_data['Total'] = {env: f"${totals[env]:,.2f}" for env in selected_environments}
+    detailed_data['Total']["TOTAL"] = f"${sum(totals.values()):,.2f}"
     detailed_df = pd.DataFrame(detailed_data).T
     st.dataframe(detailed_df)
     st.markdown("---")
