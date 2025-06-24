@@ -11,24 +11,24 @@ def highlight_second_max(s, color='yellow'):
 def calculate_costs_custom(inputs, env):
     costs = {}
 
-    # Solo para Producción, añadir los valores fijos
+    # Solo para Producción, añadir los valores fijos (ANUALES)
     if env == "Producción":
         costs['GitLab'] = 73350
         costs['CheckMarx'] = 26265.5
-        costs['Sonarqube'] = 29379.40
+        costs['Sonarqube'] = 32643.78  # Valor actualizado
 
-    # CodePipeline
+    # CodePipeline (mensual)
     v1_pipelines = inputs['codepipeline_v1']
     v2_minutes = inputs['codepipeline_v2']
     costs['CodePipeline'] = max(v1_pipelines - 1, 0)*1.00 + max(v2_minutes - 100, 0)*0.002
 
-    # CodeBuild
+    # CodeBuild (mensual)
     builds = inputs['codebuild_builds']
     duration = inputs['codebuild_duration']
     duration_sec = duration * 60
     costs['CodeBuild'] = builds * duration_sec * 0.00002
 
-    # CodeArtifact
+    # CodeArtifact (mensual)
     storage = inputs['codeartifact_storage']
     requests = inputs['codeartifact_requests']
     intra = inputs['codeartifact_intra']
@@ -113,11 +113,15 @@ if selected_environments:
     metrics_data = {}
     for env in selected_environments:
         if env in environment_costs:
-            total_cost = sum(environment_costs[env].values())
-            total_cost_anual = total_cost * 12
+            # Separar los costos anuales fijos y los mensuales
+            annual_services = ['GitLab', 'CheckMarx', 'Sonarqube']
+            annual_cost = sum(environment_costs[env][s] for s in annual_services if s in environment_costs[env])
+            monthly_cost = sum(v for k, v in environment_costs[env].items() if k not in annual_services)
+            total_cost_month = monthly_cost
+            total_cost_annual = annual_cost + (monthly_cost * 12)
             metrics_data[env] = {
-                "Costo Total Mensual": f"${total_cost:,.2f} USD",
-                "Costo Total Anual":  f"${total_cost_anual:,.2f} USD"
+                "Costo Total Mensual": f"${total_cost_month:,.2f} USD",
+                "Costo Total Anual":  f"${total_cost_annual:,.2f} USD"
             }
     metrics_df = pd.DataFrame(metrics_data).T
     st.dataframe(metrics_df)
@@ -127,7 +131,6 @@ if selected_environments:
     st.subheader("Desglose Detallado Comparativo")
     detailed_data = {}
     totals = {env: 0.0 for env in selected_environments}
-    # Reunir todos los servicios presentes en cualquier ambiente
     all_services = set()
     for env in selected_environments:
         all_services.update(environment_costs[env].keys())
@@ -136,9 +139,12 @@ if selected_environments:
         for env in selected_environments:
             cost = environment_costs[env].get(service, None)
             detailed_data[service][env] = f"${cost:,.2f}" if cost is not None else "-"
-            if cost is not None:
-                totals[env] += cost
-    # Agregar fila de totales
+    # Agregar fila de totales (mensual + anual correctamente)
+    for env in selected_environments:
+        annual_services = ['GitLab', 'CheckMarx', 'Sonarqube']
+        annual_cost = sum(environment_costs[env][s] for s in annual_services if s in environment_costs[env])
+        monthly_cost = sum(v for k, v in environment_costs[env].items() if k not in annual_services)
+        totals[env] = annual_cost + (monthly_cost * 12)
     detailed_data['Total'] = {env: f"${totals[env]:,.2f}" for env in selected_environments}
     detailed_df = pd.DataFrame(detailed_data).T
     st.dataframe(detailed_df)
@@ -164,13 +170,13 @@ else:
 with st.expander("🧮 Detalles de Cálculo"):
     st.markdown("""
     **GitLab:**  
-    Valor fijo para Producción: 73350
+    Valor fijo anual para Producción: 73350
 
     **CheckMarx:**  
-    Valor fijo para Producción: 26265.5
+    Valor fijo anual para Producción: 26265.5
 
     **Sonarqube:**  
-    Valor fijo para Producción: 29379.40
+    Valor fijo anual para Producción: 32643.78
 
     **CodePipeline:**  
     V1 Costo = max(Pipelines - 1, 0) × 1.00 USD  
